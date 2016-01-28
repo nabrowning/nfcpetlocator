@@ -12,6 +12,67 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Pet's Location"
-        android:id="@+id/mainText" />
+        android:text="Pet&apos;s Name"
+        android:id="@+id/nameText" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Type of Animal"
+        android:id="@+id/animalText"
+        android:layout_below="@+id/nameText"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Owner&apos;s Name"
+        android:id="@+id/ownerText"
+        android:layout_below="@+id/animalText"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="29dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Owner&apos;s Phone Number"
+        android:id="@+id/numberText"
+        android:layout_below="@+id/ownerText"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Owner&apos;s Address"
+        android:id="@+id/addressText"
+        android:layout_below="@+id/emailText"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Owner&apos;s Email Address"
+        android:id="@+id/emailText"
+        android:layout_below="@+id/numberText"
+        android:layout_alignParentStart="true" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Call Owner"
+        android:id="@+id/callButton"
+        android:onClick="dialPhoneNumber"
+        android:layout_marginTop="120dp"
+        android:layout_below="@+id/addressText"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SMS"
+        android:id="@+id/textSMS"
+        android:layout_below="@+id/addressText"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="29dp" />
+
 </RelativeLayout>

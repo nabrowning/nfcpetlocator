@@ -2,6 +2,7 @@ package com.nabrowning.nfcpetlocator;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
@@ -10,13 +11,16 @@ import android.nfc.tech.Ndef;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Activity for reading data from an NDEF Tag.
@@ -28,8 +32,16 @@ public class MainActivity extends Activity {
 
     public static final String TAG = "NfcDemo";
 
-    private TextView mTextView;
-    private NfcAdapter mNfcAdapter;
+    private TextView petNameTV;
+    private TextView petTypeTV;
+    private TextView ownerNameTV;
+    private TextView addressTV;
+    private TextView emailTV;
+    private TextView phoneTV;
+    private TextView smsTV;
+    private String phoneNumber;
+
+    private NfcAdapter nfcAdapter;
     public static final String MIME_TEXT_PLAIN = "text/plain";
     public static final String MIME_CONTACT = "text/vcard";
 
@@ -38,11 +50,19 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mTextView = (TextView) findViewById(R.id.mainText);
+        petNameTV = (TextView) findViewById(R.id.nameText);
+        petTypeTV = (TextView) findViewById(R.id.animalText);
+        ownerNameTV = (TextView) findViewById(R.id.ownerText);
+        addressTV = (TextView) findViewById(R.id.addressText);
+        emailTV = (TextView) findViewById(R.id.emailText);
+        phoneTV = (TextView) findViewById(R.id.numberText);
+        smsTV = (TextView) findViewById(R.id.textSMS);
 
-        mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        phoneNumber = null;
 
-        if (mNfcAdapter == null) {
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+
+        if (nfcAdapter == null) {
             // Stop here, we definitely need NFC
             Toast.makeText(this, "This device doesn't support NFC.", Toast.LENGTH_LONG).show();
             finish();
@@ -50,10 +70,10 @@ public class MainActivity extends Activity {
 
         }
 
-        if (!mNfcAdapter.isEnabled()) {
-            mTextView.setText("NFC is disabled.");
+        if (!nfcAdapter.isEnabled()) {
+            petNameTV.setText("NFC is disabled.");
         } else {
-            mTextView.setText("yay");
+            petNameTV.setText("yay");
         }
 
         handleIntent(getIntent());
@@ -70,15 +90,11 @@ public class MainActivity extends Activity {
             if (MIME_TEXT_PLAIN.equals(type)) {
 
                 Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-                Log.d(TAG, "intent type: " + type);
-                Log.d(TAG, "tag: " + tag);
                 new NdefReaderTask().execute(tag);
 
             }
             else if (MIME_CONTACT.equals(type)){
                 Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-                Log.d(TAG, "intent type: " + type);
-                Log.d(TAG, "tag: " + tag);
                 new NdefReaderTask().execute(tag);
             }
             else {
@@ -98,14 +114,26 @@ public class MainActivity extends Activity {
                 }
             }
         }
+
     }
 
-    private class NdefReaderTask extends AsyncTask<Tag, Void, ArrayList<String>>{
+    public void dialPhoneNumber(View view) {
+        if (phoneNumber != null){
+            Intent intent = new Intent(Intent.ACTION_DIAL);
+            intent.setData(Uri.parse("tel:" + phoneNumber));
+            if (intent.resolveActivity(getPackageManager()) != null) {
+                startActivity(intent);
+            }
+        }
+    }
+
+    private class NdefReaderTask extends AsyncTask<Tag, Void, HashMap<TextView, String>>{
+
 
         @Override
-        protected ArrayList<String> doInBackground(Tag... params) {
+        protected HashMap<TextView, String> doInBackground(Tag... params) {
+            HashMap<TextView, String> petInfo = new HashMap<>();
             Tag tag = params[0];
-            ArrayList<String> recordList = new ArrayList<>();
 
             Ndef ndef = Ndef.get(tag);
             if (ndef == null) {
@@ -116,22 +144,81 @@ public class MainActivity extends Activity {
             NdefMessage ndefMessage = ndef.getCachedNdefMessage();
 
             NdefRecord[] records = ndefMessage.getRecords();
-            for (NdefRecord ndefRecord : records) {
-                Log.d(TAG, "record type: " + ndefRecord.toMimeType());
-                Log.d(TAG, "record tnf: " + ndefRecord.getTnf());
-                Log.d(TAG, "record: " + ndefRecord.toString());
-                try {
-                    String newString =  readText(ndefRecord);
-                    recordList.add(newString);
-                } catch (UnsupportedEncodingException e) {
-                    Log.e(TAG, "Unsupported Encoding", e);
+            Log.d(TAG, "---------------- RECORDS -------------------");
+            for (int i = 0; i < records.length; i++) {
+                String mimeType = records[i].toMimeType();
+                Log.d(TAG, i + ": Mime type: " + mimeType);
+                if (i == 0 && mimeType.equals(MIME_TEXT_PLAIN)){
+                    handleRecord(records[i], RecordField.PET_NAME, petInfo);
                 }
+                else if(i == 1 && mimeType.equals(MIME_TEXT_PLAIN)){
+                    handleRecord(records[i], RecordField.PET_TYPE, petInfo);
+                }
+                else if(mimeType != null && mimeType.equals(MIME_CONTACT)){
+                    handleRecord(records[i], RecordField.CONTACT, petInfo);
+                }
+                else{
+                    handleRecord(records[i], RecordField.SMS, petInfo);
+                }
+
+
             }
 
-            return recordList;
+            return petInfo;
         }
 
+        private void handleRecord(NdefRecord record, RecordField field, HashMap<TextView, String> petInfo){
+            String recordText = "";
+            try {
+                recordText =  readText(record);
+            } catch (UnsupportedEncodingException e) {
+                Log.e(TAG, "Unsupported Encoding", e);
+            }
+            switch(field){
+                case PET_NAME:
+                    petInfo.put(petNameTV, recordText);
+                    break;
+
+                case PET_TYPE:
+                    petInfo.put(petTypeTV, recordText);
+                    break;
+
+                case CONTACT:
+                    setContact(recordText, petInfo);
+                    break;
+
+                case SMS:
+                    petInfo.put(smsTV, recordText);
+                    break;
+            }
+
+        }
+
+        private void setContact(String contact, HashMap<TextView, String> petInfo){
+            String[] components = contact.split("\\r?\\n");
+            for(String component : components){
+                if(component.contains("FN")){
+                    petInfo.put(ownerNameTV, component.substring(3));
+                }
+                else if(component.contains("ADR")){
+                    component = component.replace(";", "");
+                    component = component.replace("\\", "\n");
+                    petInfo.put(addressTV, component.substring(4));
+                }
+                else if(component.contains("TEL")){
+                    phoneNumber = component.substring(4);
+                    petInfo.put(phoneTV, phoneNumber);
+                }
+                else if (component.contains("EMAIL")){
+                    petInfo.put(emailTV, component.substring(6));
+                }
+            }
+        }
+
+
         private String readText(NdefRecord record) throws UnsupportedEncodingException {
+            String utf8 = "UTF-8";
+            String utf16 = "UTF-16";
         /*
          * See NFC forum specification for "Text Record Type Definition" at 3.2.1
          *
@@ -145,7 +232,7 @@ public class MainActivity extends Activity {
             byte[] payload = record.getPayload();
 
             // Get the Text Encoding
-            String textEncoding = ((payload[0] & 128) == 0) ? "UTF-8" : "UTF-16";
+            String textEncoding = ((payload[0] & 128) == 0) ? utf8 : utf16;
 
             // Get the Language Code
             int languageCodeLength = payload[0] & 0063;
@@ -159,11 +246,17 @@ public class MainActivity extends Activity {
         }
 
         @Override
-        protected void onPostExecute(ArrayList<String> result) {
+        protected void onPostExecute(HashMap<TextView, String> result) {
             if (result != null) {
-                mTextView.setText("Read content: " + result);
+                for(Map.Entry<TextView, String> info : result.entrySet()){
+                    info.getKey().setText(info.getValue());
+                }
             }
         }
+    }
+
+    private enum RecordField{
+        PET_NAME, PET_TYPE, CONTACT, SMS;
     }
 
 }
