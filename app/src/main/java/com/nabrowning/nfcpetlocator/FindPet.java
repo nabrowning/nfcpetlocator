@@ -8,7 +8,10 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import org.w3c.dom.Text;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
@@ -20,6 +23,7 @@ import java.util.Scanner;
 public class FindPet extends AppCompatActivity {
     private EditText petName;
     private EditText petType;
+    private TextView petStatus;
     public static final String URL_STRING = "http://cs.coloradocollege.edu/~cp341mobile/cgi-bin/nfcpetlocator.cgi";
     public static final String ACTION_FIND = "findPet";
     Button btn_search;
@@ -81,13 +85,18 @@ public class FindPet extends AppCompatActivity {
                         addressToFind += addressBits[i] + " ";
                     }
                     System.out.println(addressToFind);
+                    String geoString = "geo:0,0?q="+addressToFind;
+
+                    Uri uri = Uri.parse(geoString);
+
+                    Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                    startActivity(intent);
                 }
-                String geoString = "geo:0,0?q="+addressToFind;
+                else{
+                    petStatus = (TextView) findViewById(R.id.tv_status);
+                    petStatus.setText("Status: Pet not found :( Please keep checking back though!");
+                }
 
-                Uri uri = Uri.parse(geoString);
-
-                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-                startActivity(intent);
             }
         }
 
