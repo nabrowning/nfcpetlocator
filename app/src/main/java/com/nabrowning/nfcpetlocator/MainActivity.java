@@ -1,8 +1,10 @@
 package com.nabrowning.nfcpetlocator;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -49,6 +51,12 @@ public class MainActivity extends Activity {
     private Address address;
     private Geocoder geocoder;
 
+    private static final int INITIAL_REQUEST=1337;
+
+    private static final String[] LOCATION_PERMS={
+            Manifest.permission.ACCESS_FINE_LOCATION
+    };
+
     private NfcAdapter nfcAdapter;
     public static final String MIME_TEXT_PLAIN = "text/plain";
     public static final String MIME_CONTACT = "text/vcard";
@@ -66,6 +74,10 @@ public class MainActivity extends Activity {
         emailTV = (TextView) findViewById(R.id.emailText);
         phoneTV = (TextView) findViewById(R.id.numberText);
         locationTV = (TextView) findViewById(R.id.locationText);
+
+        if (!canAccessLocation()) {
+            requestPermissions(LOCATION_PERMS, INITIAL_REQUEST);
+        }
 
         getLocation();
 
@@ -90,6 +102,14 @@ public class MainActivity extends Activity {
         }
 
         handleIntent(getIntent());
+    }
+
+    private boolean canAccessLocation() {
+        return(hasPermission(Manifest.permission.ACCESS_FINE_LOCATION));
+    }
+
+    private boolean hasPermission(String perm) {
+        return(PackageManager.PERMISSION_GRANTED==checkSelfPermission(perm));
     }
 
     private void handleIntent(Intent intent) {
