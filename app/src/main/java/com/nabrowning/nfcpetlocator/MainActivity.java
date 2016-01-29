@@ -4,7 +4,6 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -17,15 +16,24 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedInputStream;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Scanner;
 
 /**
  * Activity for reading data from an NDEF Tag.
@@ -48,8 +56,10 @@ public class MainActivity extends Activity {
     private LocationManager locationManager;
     private double longitude;
     private double latitude;
+    private List<Address> addresses;
     private Address address;
-    private Geocoder geocoder;
+    public Geocoder geocoder;
+    public String petLocation;
 
     private static final int INITIAL_REQUEST=1337;
 
@@ -60,7 +70,10 @@ public class MainActivity extends Activity {
     private NfcAdapter nfcAdapter;
     public static final String MIME_TEXT_PLAIN = "text/plain";
     public static final String MIME_CONTACT = "text/vcard";
-
+    public static final String URL_STRING = "http://cs.coloradocollege.edu/~cp341mobile/cgi-bin/nfcpetlocator.cgi";
+    public static final String ACTION_REPORT = "reportPet";
+    public static final String ACTION_FIND = "findPet";
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,13 +88,12 @@ public class MainActivity extends Activity {
         phoneTV = (TextView) findViewById(R.id.numberText);
         locationTV = (TextView) findViewById(R.id.locationText);
 
-        if (!canAccessLocation()) {
-            requestPermissions(LOCATION_PERMS, INITIAL_REQUEST);
-        }
+//        if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+//            requestPermissions(LOCATION_PERMS, INITIAL_REQUEST);
+//        }
 
         getLocation();
 
-        geocoder = new Geocoder(getApplicationContext());
 
         phoneNumber = null;
 
@@ -104,13 +116,14 @@ public class MainActivity extends Activity {
         handleIntent(getIntent());
     }
 
-    private boolean canAccessLocation() {
-        return(hasPermission(Manifest.permission.ACCESS_FINE_LOCATION));
-    }
-
-    private boolean hasPermission(String perm) {
-        return(PackageManager.PERMISSION_GRANTED==checkSelfPermission(perm));
-    }
+//    private boolean canAccessLocation() {
+//        return(hasPermission(Manifest.permission.ACCESS_FINE_LOCATION));
+//    }
+//
+//
+//    private boolean hasPermission(String perm) {
+//        return(PackageManager.PERMISSION_GRANTED==checkSelfPermission(perm));
+//    }
 
     private void handleIntent(Intent intent) {
         String action = intent.getAction();
@@ -161,30 +174,29 @@ public class MainActivity extends Activity {
     }
 
     private void getLocality(Location location){
-        Log.d(TAG, "In get locality");
+        geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
         if(location != null){
+            String locality = "";
             longitude = location.getLongitude();
             latitude = location.getLatitude();
             try{
-                address = (Address) geocoder.getFromLocation(latitude, longitude, 1).toArray()[0];
-                String locality = address.getSubAdminArea();
-                if (locality == null) {
-                    locality = address.getLocality();
+                addresses = geocoder.getFromLocation(latitude, longitude, 1);
+                address = addresses.get(0);
+                if(address.getAddressLine(0) != null){
+                    locality += address.getAddressLine(0);
+                    locality += address.getAddressLine(1);
                 }
-
-                if (locality == null){
-                    locality = address.getSubAdminArea();
+                else{
+                    locality += address.getLocality();
                 }
-                if (locality == null) {
-                    locality = address.getAddressLine(0);
-                }
-                Log.d(TAG, "locality: " + locality);
+//                Log.d("LOCALITY: ", locality);
                 locationTV.setText(locality);
-                Toast t = Toast.makeText(getApplicationContext(), locality, Toast.LENGTH_LONG);
-                t.show();
+                petLocation = locality;
+//                Toast t = Toast.makeText(getApplicationContext(), locality, Toast.LENGTH_LONG);
+//                t.show();
             }
             catch (Exception e) {
-                System.out.println(e);
+                System.out.println("Locality error: "+ e);
             }
 //            longitude = location.getLongitude();
 //            latitude = location.getLatitude();
@@ -201,16 +213,13 @@ public class MainActivity extends Activity {
     }
 
     public void getLocation() {
-        Log.d(TAG, "In get location");
-        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         try{
             Location lastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            Log.d(TAG, "last location: " + lastLocation);
             getLocality(lastLocation);
         }
         catch (SecurityException e){
-            Log.d(TAG, "caught security exception: " + e);
-            System.out.print(e);
+            System.out.print("Location Error: "+ e);
         }
         LocationListener locationListener = new LocationListener() {
             public void onLocationChanged(Location location) {
@@ -238,7 +247,40 @@ public class MainActivity extends Activity {
         }
     }
 
+    private class RetrieveHTTPTask extends AsyncTask<String, Void, String>{
+
+        protected String doInBackground(String... urlStrings){
+            String urlString = urlStrings[0];
+            try{
+                URL url = new URL(urlString);
+                HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+
+                InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                Scanner myScanner = new Scanner(in);
+                String result = "";
+                while(myScanner.hasNext()){
+                    result += myScanner.next()+"";
+                }
+                in.close();
+                return result;
+            }catch(Exception e){
+                return "ERROR: " + e;
+            }
+        }
+
+        protected void onPostExecute(String result){
+            if(result != null){
+                Toast.makeText(getApplicationContext(), "Reported via HTTP", Toast.LENGTH_LONG).show();
+                finish();
+            }
+        }
+
+    }
+
     private class NdefReaderTask extends AsyncTask<Tag, Void, HashMap<TextView, String>>{
+
+        protected String petName;
+        protected String petType;
 
         @Override
         protected HashMap<TextView, String> doInBackground(Tag... params) {
@@ -282,10 +324,12 @@ public class MainActivity extends Activity {
             switch(field){
                 case PET_NAME:
                     petInfo.put(petNameTV, recordText);
+                    petName = recordText;
                     break;
 
                 case PET_TYPE:
                     petInfo.put(petTypeTV, recordText);
+                    petType = recordText;
                     break;
 
                 case CONTACT:
@@ -351,6 +395,11 @@ public class MainActivity extends Activity {
             if (result != null) {
                 for(Map.Entry<TextView, String> info : result.entrySet()){
                     info.getKey().setText(info.getValue());
+                }
+                try{
+                    new RetrieveHTTPTask().execute(URL_STRING+"?action="+ACTION_REPORT+"&name="+petName+"&type="+petType+"&location="+ URLEncoder.encode(petLocation,"UTF-8"));
+                }catch(Exception e){
+                    System.out.println("Encoding error: " + e);
                 }
             }
         }
