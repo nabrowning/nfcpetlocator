@@ -1,7 +1,13 @@
 package com.nabrowning.nfcpetlocator;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -12,13 +18,10 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,8 +41,13 @@ public class MainActivity extends Activity {
     private TextView addressTV;
     private TextView emailTV;
     private TextView phoneTV;
-    private TextView smsTV;
+    private TextView locationTV;
     private String phoneNumber;
+    private LocationManager locationManager;
+    private double longitude;
+    private double latitude;
+    private Address address;
+    private Geocoder geocoder;
 
     private NfcAdapter nfcAdapter;
     public static final String MIME_TEXT_PLAIN = "text/plain";
@@ -50,13 +58,18 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
         petNameTV = (TextView) findViewById(R.id.nameText);
         petTypeTV = (TextView) findViewById(R.id.animalText);
         ownerNameTV = (TextView) findViewById(R.id.ownerText);
         addressTV = (TextView) findViewById(R.id.addressText);
         emailTV = (TextView) findViewById(R.id.emailText);
         phoneTV = (TextView) findViewById(R.id.numberText);
-        smsTV = (TextView) findViewById(R.id.textSMS);
+        locationTV = (TextView) findViewById(R.id.locationText);
+
+        getLocation();
+
+        geocoder = new Geocoder(getApplicationContext());
 
         phoneNumber = null;
 
@@ -127,8 +140,85 @@ public class MainActivity extends Activity {
         }
     }
 
-    private class NdefReaderTask extends AsyncTask<Tag, Void, HashMap<TextView, String>>{
+    private void getLocality(Location location){
+        Log.d(TAG, "In get locality");
+        if(location != null){
+            longitude = location.getLongitude();
+            latitude = location.getLatitude();
+            try{
+                address = (Address) geocoder.getFromLocation(latitude, longitude, 1).toArray()[0];
+                String locality = address.getSubAdminArea();
+                if (locality == null) {
+                    locality = address.getLocality();
+                }
 
+                if (locality == null){
+                    locality = address.getSubAdminArea();
+                }
+                if (locality == null) {
+                    locality = address.getAddressLine(0);
+                }
+                Log.d(TAG, "locality: " + locality);
+                locationTV.setText(locality);
+                Toast t = Toast.makeText(getApplicationContext(), locality, Toast.LENGTH_LONG);
+                t.show();
+            }
+            catch (Exception e) {
+                System.out.println(e);
+            }
+//            longitude = location.getLongitude();
+//            latitude = location.getLatitude();
+//            Toast t = Toast.makeText(getApplicationContext(),
+//                    String.format("long: " + longitude + "\nlat: " + latitude), Toast.LENGTH_LONG);
+//            t.show();
+        }
+        else{
+            Toast t = Toast.makeText(getApplicationContext(), "NO LAST LOCATION", Toast.LENGTH_SHORT);
+            t.show();
+
+        }
+
+    }
+
+    public void getLocation() {
+        Log.d(TAG, "In get location");
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        try{
+            Location lastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            Log.d(TAG, "last location: " + lastLocation);
+            getLocality(lastLocation);
+        }
+        catch (SecurityException e){
+            Log.d(TAG, "caught security exception: " + e);
+            System.out.print(e);
+        }
+        LocationListener locationListener = new LocationListener() {
+            public void onLocationChanged(Location location) {
+                getLocality(location);
+            }
+
+            @Override
+            public void onProviderDisabled(String provider) {
+            }
+
+            @Override
+            public void onProviderEnabled(String provider) {
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+            }
+        };
+
+        try{
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000, 10, locationListener);
+        }
+        catch (SecurityException e){
+            System.out.print(e);
+        }
+    }
+
+    private class NdefReaderTask extends AsyncTask<Tag, Void, HashMap<TextView, String>>{
 
         @Override
         protected HashMap<TextView, String> doInBackground(Tag... params) {
@@ -157,11 +247,6 @@ public class MainActivity extends Activity {
                 else if(mimeType != null && mimeType.equals(MIME_CONTACT)){
                     handleRecord(records[i], RecordField.CONTACT, petInfo);
                 }
-                else{
-                    handleRecord(records[i], RecordField.SMS, petInfo);
-                }
-
-
             }
 
             return petInfo;
@@ -185,10 +270,6 @@ public class MainActivity extends Activity {
 
                 case CONTACT:
                     setContact(recordText, petInfo);
-                    break;
-
-                case SMS:
-                    petInfo.put(smsTV, recordText);
                     break;
             }
 
