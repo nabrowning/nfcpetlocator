@@ -72,8 +72,7 @@ public class MainActivity extends Activity {
     public static final String MIME_CONTACT = "text/vcard";
     public static final String URL_STRING = "http://cs.coloradocollege.edu/~cp341mobile/cgi-bin/nfcpetlocator.cgi";
     public static final String ACTION_REPORT = "reportPet";
-    public static final String ACTION_FIND = "findPet";
-    
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -183,14 +182,14 @@ public class MainActivity extends Activity {
                 addresses = geocoder.getFromLocation(latitude, longitude, 1);
                 address = addresses.get(0);
                 if(address.getAddressLine(0) != null){
-                    locality += address.getAddressLine(0);
+                    locality += address.getAddressLine(0)+" ";
                     locality += address.getAddressLine(1);
                 }
                 else{
                     locality += address.getLocality();
                 }
 //                Log.d("LOCALITY: ", locality);
-                locationTV.setText(locality);
+                locationTV.setText("Your address: "+ locality);
                 petLocation = locality;
 //                Toast t = Toast.makeText(getApplicationContext(), locality, Toast.LENGTH_LONG);
 //                t.show();
@@ -210,6 +209,11 @@ public class MainActivity extends Activity {
 
         }
 
+    }
+
+    public void changeToSearch(View view){
+        Intent intent = new Intent(getApplicationContext(), FindPet.class);
+        startActivity(intent);
     }
 
     public void getLocation() {
@@ -270,8 +274,8 @@ public class MainActivity extends Activity {
 
         protected void onPostExecute(String result){
             if(result != null){
-                Toast.makeText(getApplicationContext(), "Reported via HTTP", Toast.LENGTH_LONG).show();
-                finish();
+                Toast.makeText(getApplicationContext(), "Reported to server", Toast.LENGTH_LONG).show();
+//                finish();
             }
         }
 
@@ -398,6 +402,7 @@ public class MainActivity extends Activity {
                 }
                 try{
                     new RetrieveHTTPTask().execute(URL_STRING+"?action="+ACTION_REPORT+"&name="+petName+"&type="+petType+"&location="+ URLEncoder.encode(petLocation,"UTF-8"));
+                    Toast.makeText(getApplicationContext(),"Reporting to server", Toast.LENGTH_LONG).show();
                 }catch(Exception e){
                     System.out.println("Encoding error: " + e);
                 }
