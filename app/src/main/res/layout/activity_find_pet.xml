@@ -41,4 +41,14 @@
         android:id="@+id/btn_search"
         android:layout_below="@+id/et_petType"
         android:layout_alignParentStart="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Status: "
+        android:id="@+id/tv_status"
+        android:layout_below="@+id/btn_search"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="132dp"
+        android:layout_alignEnd="@+id/et_petType" />
 </RelativeLayout>
